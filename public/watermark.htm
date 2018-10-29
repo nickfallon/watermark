@@ -1,0 +1,201 @@
+﻿
+<!DOCTYPE html>
+<html>
+<head>
+
+    <style>
+    
+    .pic {
+        width: 512px;
+        height: 512px;
+    }
+    .hide {
+        visibility: hidden;
+        display: none;
+    }
+    </style>
+</head>
+<body>
+    <h1>Digital watermark</h1>
+
+    <p>
+        This is a simple watermarking app that applies an invisible LSB steganographic watermark (it hides one image inside another).
+        <li>load pics - loads 2 images</li>
+        <li>watermark - creates a watermarked image (image A hidden in image B)</li>
+        <li>extract - pulls the watermark out and displays it</li>
+    </p>
+
+    <p>
+        <b>How it works:</b>
+        <li>Image A is the watermark; Image B is the image to be watermarked.</li>
+        <li>A is compressed from 24bit (RGBA) into 2 bits per channel by dividing each color channel value by 65 and applying bitwise OR 0x03. This reduces the range 0-255 to 0-3, which fits into 2 bits.</li>
+        <li>These 2 bits per pixel then overwrite the least-significant 2 bits of the channels in the target image to be watermarked. </li>
+        <li>The watermark is extracted by extracting the 2 LSBs (bitwise AND 0xFC) and multiplying by 65 to re-hydrate the watermark into an approximation of the original image.</li>
+    </p>
+
+    <p>
+        This app uses a tiny Node/Express server to get around CORS errors that arise from messing with images in a canvas, so use <b>npm start</b> it and load http://localhost:8080/watermark.htm in your browser.    
+    </p>
+
+    <input type="button" onclick="loadpics()" value="load pics" />
+    <input type="button" onclick="watermark()" value="watermark" />
+    <input type="button" onclick="extract()" value="extract" />
+    
+    <br><br>
+
+    <canvas width="512" height="512" id="canvas1" class=""></canvas>
+    <canvas width="512" height="512" id="canvas2" class=""></canvas>
+    <canvas width="512" height="512" id="canvas3" class="hide"></canvas>
+
+    <div>watermarked image</div>
+    <img id="dest1" class="pic" />
+
+
+    <div>extracted watermark</div>
+    <img id="dest2" class="pic" />
+
+    <script>
+
+        //nick fallon 2018
+
+        var canvas1 = document.getElementById('canvas1');
+        var canvas2 = document.getElementById('canvas2');
+        var canvas3 = document.getElementById('canvas3');
+        var ctx1 = canvas1.getContext("2d");        
+        var ctx2 = canvas2.getContext("2d");      
+        var ctx3 = canvas3.getContext("2d");        
+       
+       var image1;
+       var image2;
+
+       var data1;
+       var data2;
+       var data3;
+       
+       function loadpics(){
+      
+            image1 = new Image();            
+            image1.addEventListener("load", function() {                
+                ctx1.drawImage(image1, 0,0, 512, 512);                 
+            });                    
+            image1.crossOrigin = "Anonymous";  
+            image1.src = 'cat.jpg';
+        
+            image2 = new Image();            
+            image2.addEventListener("load", function() {                
+                ctx2.drawImage(image2, 0,0, 512, 512);                 
+            });                    
+            image2.crossOrigin = "Anonymous";  
+            image2.src = 'tree.jpg';
+        
+
+        }
+
+        function watermark() {
+            
+            data1 = ctx1.getImageData(0, 0, canvas1.width, canvas1.height);
+            data2 = ctx2.getImageData(0, 0, canvas2.width, canvas2.height);
+
+            //for each pixel   
+            var w = image1.width;
+            var h = image1.height;
+
+            var idx = 0;
+
+            for (var y = 0; y < h; y++) {
+                for (var x = 0; x < w; x++) {
+
+                    //source
+                    
+                    //red
+                    var r = data1.data[idx + 0];
+                    //green
+                    var g = data1.data[idx + 1];
+                    //blue
+                    var b = data1.data[idx + 2];
+                    //alpha
+                    var a = data1.data[idx + 3];
+
+                    //compress pixel to 2 bits (AND it with 3 as a mask)
+                    r = Math.floor(r / 65) & 0x03;
+                    g = Math.floor(g / 65) & 0x03;
+                    b = Math.floor(b / 65) & 0x03;
+
+                    //dest
+
+                    //red
+                    var r2 = data2.data[idx + 0] & 0xFC;
+                    //green
+                    var g2 = data2.data[idx + 1] & 0xFC;
+                    //blue
+                    var b2 = data2.data[idx + 2] & 0xFC;
+                    //alpha
+                    var a2 = data2.data[idx + 3] & 0xFF;
+             
+
+                    data2.data[idx + 0] = r2 | r;
+                    data2.data[idx + 1] = g2 | g;
+                    data2.data[idx + 2] = b2 | b;
+                    data2.data[idx + 3] = a2 | a;
+
+                    idx = idx + 4;
+                }
+            }   
+            ctx2.putImageData(data2, 0, 0, 0, 0, canvas2.width, canvas2.height);
+            document.getElementById('dest1').src = canvas2.toDataURL("image/png");
+
+            //alert ('A watermaked image has been created - scroll down the page to see it.');
+
+        }
+
+
+        function extract() {
+
+            var img = document.getElementById('dest1');
+
+            //draw the watermarked image back into canvas2
+            ctx3.drawImage(img, 0,0, 512, 512);  
+
+            data3 = ctx3.getImageData(0, 0, canvas3.width, canvas3.height);
+
+            var w = image1.width;
+            var h = image1.height;
+            var idx = 0;
+
+            //extract watermark from image
+
+            for (var y = 0; y < h; y++) {
+                for (var x = 0; x < w; x++) {
+
+                    //source             
+                    var r = Math.floor((data3.data[idx + 0] & 0x03)  * 65);
+                    //green
+                    var g = Math.floor((data3.data[idx + 1] & 0x03)  * 65);
+                    //blue
+                    var b = Math.floor((data3.data[idx + 2] & 0x03) * 65);
+                    //alpha
+                    var a = data3.data[idx + 3];
+                 
+                    data3.data[idx + 0] = r;
+                    data3.data[idx + 1] = g;
+                    data3.data[idx + 2] = b;
+                    data3.data[idx + 3] = 0xff;
+
+                    idx = idx + 4;
+                }
+            }   
+
+            ctx3.putImageData(data3, 0, 0, 0, 0, canvas3.width, canvas3.height);
+
+            document.getElementById('dest2').src = canvas3.toDataURL("image/png");
+
+            console.log('done');
+
+            //alert ('The watermark has been extracted - see last image to see it.');
+
+        }
+
+    </script>
+
+</body>
+</html>
