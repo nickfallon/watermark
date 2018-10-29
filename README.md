@@ -2,7 +2,7 @@
 
 This is my attempt at a LSB Steganographic watermarking implementation in Javascript. Slightly hacky demo, use at your own risk.
 
-This is a simple watermarking app that applies an invisible image watermark to a target image. In other words, it hides one image inside another. It uses a tiny NodeJS/Express server to get around CORS errors that arise from messing with images in a canvas, so use npm start and load http://localhost:8080/watermark.htm in your browser to run it. 
+This is a simple watermarking app that applies a watermark image to a target image. The watermark cannot be seen, but it can be extracted later using the extract method in the app - in other words, it hides one image inside another. I have used a tiny NodeJS/Express server to get around CORS errors that arise from messing with images in a canvas, so use npm start and load http://localhost:8080/watermark.htm in your browser to run it. 
         
 - load pics - loads 2 images
 
@@ -21,6 +21,6 @@ This is a simple watermarking app that applies an invisible image watermark to a
         
 - The watermark is extracted by taking the 2 LSBs (bitwise AND 0xFC) and multiplying by 65 to re-hydrate the watermark into an approximation of the original image.
 
-The watermark is invisible to the naked eye, and extracted watermarks look pretty good. 
+The watermark is invisible to the naked eye. Extracted watermarks are color, and look pretty good.
 
 
